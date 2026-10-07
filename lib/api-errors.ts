@@ -1,0 +1,6 @@
+import {ZodError} from 'zod';
+import {AccessError} from './membership';
+export const privateHeaders={'Cache-Control':'no-store'};
+export function apiError(error:unknown){if(error instanceof AccessError)return Response.json({error:error.message},{status:error.status,headers:privateHeaders});if(error instanceof ZodError)return Response.json({error:error.issues[0]?.message||'Revisa los datos.'},{status:400,headers:privateHeaders});console.error('Network operation failed',error);return Response.json({error:'No pudimos guardar los cambios. Tu captura se conserva para reintentar.'},{status:503,headers:privateHeaders})}
+export async function jsonInput(request:Request,max=15000){if(!request.headers.get('content-type')?.includes('application/json'))throw new AccessError('Formato de solicitud no válido.',415);const text=await request.text();if(text.length>max)throw new AccessError('La solicitud es demasiado grande.',413);try{return JSON.parse(text)}catch{throw new AccessError('Revisa el formato de los datos.',400)}}
+export function checkSameOrigin(request:Request){const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)throw new AccessError('La solicitud debe hacerse desde cuatroporciento.');}

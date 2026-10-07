@@ -1,0 +1,37 @@
+import type {Property,Requirement} from './real-estate';
+export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+export const featureAliases:Record<string,string[]>={Terraza:['terraza'],Seguridad:['seguridad','vigilancia','acceso controlado'], 'Cocina integral':['cocina integral'],Estudio:['estudio','oficina'], 'Sala de TV':['sala de tv','sala tv','sala de television'], 'Cuarto de servicio':['cuarto de servicio','habitacion de servicio']};
+export type SearchCriteria={operation?:'Venta'|'Renta';type?:string;zones:string[];budget?:number;beds?:number;baths?:number;parking?:number;minArea?:number;minLand?:number;gardenMode?:'Con jardín'|'Sin jardín';poolMode?:'Con alberca'|'Sin alberca';furnishing?:'Amueblado'|'Sin muebles';features:string[];keywords:string};
+export function locationText(p:Property){return normalize([p.zone,p.clientDetails?.neighborhood,p.clientDetails?.postalCode,p.clientDetails?.address,p.clientDetails?.city,p.clientDetails?.state].filter(Boolean).join(' '));}
+export function matchesLocation(p:Property,query:string){const terms=normalize(query).replace(/\b(?:en|el|la|los|las|de|del|colonia|col|fraccionamiento|fracc|codigo|postal|cp|direccion)\b/g,' ').split(/[^a-z0-9]+/).filter(Boolean);return !terms.length||terms.every(term=>locationText(p).includes(term));}
+export function propertyText(p:Property){return normalize([p.id,p.title,p.type,p.zone,p.owner,p.agency,p.description,...Object.values(p.clientDetails||{})].join(' '));}
+function affirmative(text:string,aliases:string[]){return aliases.some(a=>{const term=normalize(a);const escaped=term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const positive=new RegExp('\\b'+escaped+'\\b','g');let match;while((match=positive.exec(text))){const before=text.slice(Math.max(0,match.index-50),match.index);if(!/(?:\bsin|\bno(?:\s+cuenta|\s+tiene|\s+incluye|\s+dispone)?(?:\s+con|\s+de)?)\s+(?:[a-z]+\s+){0,2}$/.test(before))return true;}return false;});}
+function furnishingMatches(p:Property,wanted:string){const text=normalize(p.clientDetails?.furnishing||p.title+' '+p.description);if(wanted==='Amueblado')return affirmative(text,['amueblado','amueblada','muebles incluidos']);return /sin muebles|sin amueblar|no amueblado|no amueblada|no cuenta con muebles/.test(text);}
+export function matchesCriteria(p:Property,c:Partial<SearchCriteria>){
+ if(c.operation&&p.operation!==c.operation||c.type&&c.type!=='Indistinto'&&p.type!==c.type)return false;
+ if(c.zones?.length&&!c.zones.some(z=>matchesLocation(p,z)))return false;
+ if(c.budget&&p.price>c.budget||p.beds<(c.beds||0)||p.baths<(c.baths||0)||p.parking<(c.parking||0)||p.area<(c.minArea||0)||p.land<(c.minLand||0))return false;
+ if(c.gardenMode==='Con jardín'&&!p.garden||c.gardenMode==='Sin jardín'&&p.garden||c.poolMode==='Con alberca'&&!p.pool||c.poolMode==='Sin alberca'&&p.pool)return false;
+ if(c.furnishing&&!furnishingMatches(p,c.furnishing))return false;
+ const text=propertyText(p);if(c.features?.some(f=>!affirmative(text,featureAliases[f]||[f])))return false;
+ return !c.keywords||normalize(c.keywords).split(' ').filter(Boolean).every(word=>text.includes(word));
+}
+export function requirementCriteria(r:Requirement):Partial<SearchCriteria>{return {operation:r.operation==='Indistinta'?undefined:r.operation,type:r.type,zones:r.zones,budget:r.budget,beds:r.beds,baths:r.baths,parking:r.parking,minArea:r.minArea,minLand:r.minLand,gardenMode:r.gardenMode==='Indiferente'?undefined:r.gardenMode||(r.garden?'Con jardín':undefined),poolMode:r.poolMode==='Indiferente'?undefined:r.poolMode,furnishing:r.furnishing==='Indistinto'?undefined:r.furnishing,features:r.features,keywords:r.keywords};}
+export function criteriaLabels(c:Partial<SearchCriteria>){return [c.operation,c.type&&c.type!=='Indistinto'?c.type:undefined,...(c.zones||[]),c.budget?'Hasta $'+c.budget.toLocaleString('es-MX'):undefined,c.beds?c.beds+'+ recámaras':undefined,c.baths?c.baths+'+ baños':undefined,c.parking?c.parking+'+ estacionamientos':undefined,c.minArea?c.minArea+'+ m² construcción':undefined,c.minLand?c.minLand+'+ m² terreno':undefined,c.gardenMode,c.poolMode,c.furnishing,...(c.features||[]),c.keywords?'Texto: '+c.keywords:undefined].filter(Boolean) as string[];}
+export function parsePropertySearch(query:string,knownZones:string[]=[]):SearchCriteria{
+ let text=normalize(query);const c:SearchCriteria={zones:[],features:[],keywords:''};
+ function take(pattern:RegExp,fn:(m:RegExpMatchArray)=>void){const m=text.match(pattern);if(m){fn(m);text=text.replace(pattern,' ');}}
+ take(/\b(?:renta|alquiler|arrendamiento)\b/,()=>c.operation='Renta');take(/\b(?:venta|comprar|compra)\b/,()=>c.operation??='Venta');
+ take(/\b(?:departamentos?|dptos?|deptos?|depas?|apartamentos?)\b/,()=>c.type='Departamento');take(/\b(?:casas?|residencias?)\b/,()=>c.type??='Casa');
+ for(const [type,pattern] of [['Bodega','bodegas?'],['Nave industrial','naves? industrial(?:es)?'],['Lote comercial','lotes? comercial(?:es)?'],['Local comercial','local(?:es)?(?: comercial(?:es)?)?'],['Terreno','terrenos?|lotes?'],['Loft','lofts?'],['Oficina','oficinas?'],['Edificio','edificios?'],['Rancho','ranchos?'],['Quinta','quintas?'],['Consultorio','consultorios?'],['Penthouse','penthouses?']] as const)take(new RegExp('\\b(?:'+pattern+')\\b'),()=>c.type??=type);
+ for(const zone of [...new Set(knownZones)].sort((a,b)=>b.length-a.length)){const n=normalize(zone);const bare=n.replace(/^(?:el|la|los|las) /,'');const escaped=bare.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');take(new RegExp('\\b(?:(?:el|la|los|las) )?'+escaped+'\\b'),()=>c.zones.push(zone));}
+ take(/\b(?:sin|no(?: cuenta| tiene)?(?: con)?)\s+(?:un |una )?jardin\b/,()=>c.gardenMode='Sin jardín');take(/\bjardin(?:es)?\b/,()=>c.gardenMode??='Con jardín');
+ take(/\b(?:sin|no(?: cuenta| tiene)?(?: con)?)\s+(?:una )?(?:alberca|piscina)\b/,()=>c.poolMode='Sin alberca');take(/\b(?:alberca|piscina)\b/,()=>c.poolMode??='Con alberca');
+ take(/\b(?:sin muebles|sin amueblar|no amueblad[oa])\b/,()=>c.furnishing='Sin muebles');take(/\bamueblad[oa]\b/,()=>c.furnishing??='Amueblado');
+ for(const [field,terms] of [['beds','recamaras?|habitaciones?|dormitorios?'],['baths','banos?'],['parking','estacionamientos?|cocheras?|cajones?']] as const){take(new RegExp('\\b(?:minimo |al menos |desde )?(\\d+(?:\\.\\d+)?)\\s*\\+?\\s*(?:'+terms+')\\b'),m=>c[field]=Number(m[1]));take(new RegExp('\\b(?:'+terms+')\\s*(?:de |: ?)?(\\d+(?:\\.\\d+)?)\\b'),m=>c[field]=Number(m[1]));}
+ for(let i=0;i<2;i++)take(/\b(?:minimo |al menos |desde )?(\d+(?:\.\d+)?)\s*(?:m2|m²|metros(?: cuadrados)?)\s*(?:de )?(construccion|terreno)\b/,m=>c[m[2]==='terreno'?'minLand':'minArea']=Number(m[1]));
+ take(/(?:\b(?:hasta|maximo|presupuesto(?: de)?|menos de)\s*\$?\s*|\$\s*)(\d[\d,.]*)(?:\s*(millones?|mdp|millon|mil|k|m)\b)?(?:\s*(?:pesos|mxn))?/,m=>{const unit=m[2]||'';let amount=Number(unit?m[1].replace(',','.'):m[1].replace(/,/g,'').replace(/\.(?=\d{3}(?:\.|$))/g,''));if(/millon|mdp|^m$/.test(unit))amount*=1e6;else if(/mil|k/.test(unit))amount*=1e3;c.budget=amount;});
+ for(const [feature,aliases] of Object.entries(featureAliases)){take(new RegExp('\\b(?:'+aliases.map(normalize).join('|')+')\\b'),()=>c.features.push(feature));}
+ c.keywords=text.replace(/\b(?:quiero|busco|buscar|necesito|una|un|unos|unas|con|en|el|la|los|las|de|del|al|por|para|que|tenga|y|o|a|minimo|minima|al menos|mas|se|cuenta)\b/g,' ').replace(/[^a-z0-9\s-]/g,' ').replace(/\s+/g,' ').trim();
+ return c;
+}

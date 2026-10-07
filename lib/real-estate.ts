@@ -1,0 +1,38 @@
+import {matchesCriteria,requirementCriteria} from './property-search';
+export const propertyTypes=['Casa','Departamento','Bodega','Terreno','Loft','Lote comercial','Local comercial','Oficina','Nave industrial','Edificio','Rancho','Quinta','Consultorio','Penthouse'] as const;
+export type Operation = 'Venta' | 'Renta';
+export type PropertyStatus = 'Disponible' | 'Reservado' | 'Vendido' | 'Rentado' | 'Retirado' | 'Pendiente de reconfirmación';
+export type ClientPropertyDetails = {city?:string;state?:string;address?:string;neighborhood?:string;postalCode?:string;maintenance?:string;furnishing?:string;distribution?:string;equipment?:string;terms?:string};
+export type Property = {clientDetails?:ClientPropertyDetails;ownerId?:string;photos?:string[];id:string;title:string;type:string;operation:Operation;zone:string;price:number;beds:number;baths:number;parking:number;area:number;land:number;garden:boolean;pool:boolean;image:string;owner:string;agency:string;mine:boolean;direct:boolean;exclusive:boolean;status:PropertyStatus;confirmed:string;commission:number;description:string};
+export type Requirement = {ownerId?:string;id:string;reference:string;operation:Operation|'Indistinta';type:string;zones:string[];budget:number;beds:number;parking:number;garden:boolean;gardenMode?:'Indiferente'|'Con jardín'|'Sin jardín';poolMode?:'Indiferente'|'Con alberca'|'Sin alberca';baths?:number;minArea?:number;minLand?:number;furnishing?:'Indistinto'|'Amueblado'|'Sin muebles';features?:string[];keywords?:string;searchText?:string;createdAt?:string;updatedAt?:string;history?:{at:string;text:string;criteria:string[]}[];status:'Activo'|'Pausado'|'Resuelto'|'Vencido';flexBudget:boolean;alerts:boolean};
+export type Collaboration = {senderId?:string;recipientId?:string;events?:{actorId:string;text:string;at:string}[];clarification?:string;id:string;propertyId:string;direction:'Recibida'|'Enviada';status:'Pendiente'|'Aceptada'|'Rechazada'|'Aclaración';colleague:string;message:string;requirementId:string;priceSnapshot:number;commissionSnapshot:number;operationSnapshot:Operation;conditionsSnapshot:string;acceptedAt?:string};
+export const sampleImages = [
+ 'https://images.pexels.com/photos/7587880/pexels-photo-7587880.jpeg?auto=compress&dpr=1&h=750&w=1260',
+ 'https://images.pexels.com/photos/6588599/pexels-photo-6588599.jpeg?auto=compress&dpr=1&h=750&w=1260',
+ 'https://images.pexels.com/photos/8134746/pexels-photo-8134746.jpeg?auto=compress&dpr=1&h=750&w=1260'
+];
+export const initialProperties:Property[] = [
+ {id:'RCI-001',title:'Casa con jardín en Mayorazgo',type:'Casa',operation:'Venta',zone:'Mayorazgo',price:6400000,beds:3,baths:3.5,parking:2,area:280,land:250,garden:true,pool:false,image:sampleImages[0],owner:'Mariana López',agency:'López Bienes Raíces',mine:false,direct:true,exclusive:false,status:'Disponible',confirmed:'Hoy',commission:1.5,description:'Espacios abiertos, jardín privado y sala de TV. Dentro de un fraccionamiento con acceso controlado. Fotografías ilustrativas; la ficha completa es un ejemplo.'},
+ {id:'RCI-002',title:'Casa contemporánea en Punta del Este',type:'Casa',operation:'Venta',zone:'Punta del Este',price:6800000,beds:3,baths:3,parking:2,area:310,land:220,garden:false,pool:false,image:sampleImages[2],owner:'Diego Torres',agency:'Torres Inmobiliaria',mine:false,direct:true,exclusive:true,status:'Disponible',confirmed:'Hoy',commission:1.5,description:'Casa de tres recámaras con terraza y amplios interiores. No cuenta con jardín. Imagen ilustrativa; los atributos de la fotografía no forman parte de la oferta de ejemplo.'},
+ {id:'RCI-003',title:'Departamento amueblado en El Molino',type:'Departamento',operation:'Renta',zone:'El Molino',price:22000,beds:2,baths:2,parking:2,area:115,land:0,garden:false,pool:false,image:sampleImages[1],owner:'Ana Robles',agency:'Robles Real Estate',mine:false,direct:true,exclusive:false,status:'Disponible',confirmed:'Ayer',commission:50,description:'Departamento amueblado, dos recámaras y dos cajones de estacionamiento. Disponible para renta anual. Fotografía de referencia.'},
+ {id:'RCI-004',title:'Residencia con terraza y jardín',type:'Casa',operation:'Venta',zone:'Mayorazgo',price:7100000,beds:4,baths:4,parking:3,area:350,land:300,garden:true,pool:true,image:sampleImages[2],owner:'Mariana López',agency:'López Bienes Raíces',mine:false,direct:true,exclusive:true,status:'Disponible',confirmed:'Ayer',commission:1.5,description:'Residencia con jardín, terraza y alberca privada. Una alternativa de mayor presupuesto. Fotografías y datos de ejemplo.'},
+ {id:'RCI-005',title:'Departamento con terraza en El Molino',type:'Departamento',operation:'Renta',zone:'El Molino',price:25000,beds:2,baths:2,parking:2,area:130,land:0,garden:false,pool:false,image:sampleImages[1],owner:'Alejandro Medina',agency:'Asesor independiente',mine:true,direct:true,exclusive:false,status:'Disponible',confirmed:'Hoy',commission:50,description:'Departamento de dos recámaras con terraza y seguridad. Datos e imagen ilustrativos.'},
+ {id:'RCI-006',title:'Casa familiar en Zanda',type:'Casa',operation:'Venta',zone:'Zanda',price:4200000,beds:3,baths:2.5,parking:2,area:210,land:190,garden:true,pool:false,image:sampleImages[0],owner:'Alejandro Medina',agency:'Asesor independiente',mine:true,direct:true,exclusive:false,status:'Pendiente de reconfirmación',confirmed:'Hace 18 días',commission:1.5,description:'Casa familiar con jardín posterior. Esta publicación necesita reconfirmación y está fuera de las búsquedas.'}
+];
+export const initialRequirements:Requirement[] = [
+ {id:'REQ-01',reference:'Familia · zona norte',operation:'Venta',type:'Casa',zones:['Mayorazgo','Punta del Este'],budget:7000000,beds:3,parking:2,garden:true,status:'Activo',flexBudget:false,alerts:true},
+ {id:'REQ-02',reference:'Ejecutivo · El Molino',operation:'Renta',type:'Departamento',zones:['El Molino'],budget:25000,beds:2,parking:2,garden:false,status:'Activo',flexBudget:false,alerts:false}
+];
+export function commissionText(operation:Operation,commission:number) { return operation==='Venta'?`${commission}% sobre el precio final de venta`:`${commission}% de una mensualidad de renta`; }
+export function conditions(p:Property) {return `${commissionText(p.operation,p.commission)} para el asesor colaborador. Pago al formalizar la operación y recibir el pago de la comisión. Coordinación previa con el responsable.`;}
+export const initialCollaborations:Collaboration[] = [
+ {id:'COL-01',propertyId:'RCI-005',direction:'Recibida',status:'Pendiente',colleague:'Ana Robles',message:'Tengo un cliente que busca dos recámaras en El Molino. ¿Podemos confirmar disponibilidad para una visita?',requirementId:'',priceSnapshot:25000,commissionSnapshot:50,operationSnapshot:'Renta',conditionsSnapshot:conditions(initialProperties[4])},
+ {id:'COL-02',propertyId:'RCI-001',direction:'Enviada',status:'Aceptada',colleague:'Mariana López',message:'Mi requerimiento es compatible. Me gustaría coordinar una visita.',requirementId:'REQ-01',priceSnapshot:6400000,commissionSnapshot:1.5,operationSnapshot:'Venta',conditionsSnapshot:conditions(initialProperties[0]),acceptedAt:'6 oct · ejemplo'}
+];
+export function getMatches(r:Requirement,properties:Property[],alternatives=false) {
+ if(r.status!=='Activo')return [];
+ const criteria=requirementCriteria(r);if(alternatives){if(!r.flexBudget||!r.budget)return [];criteria.budget=r.budget*1.05;}
+ return properties.filter(p=>p.status==='Disponible'&&(!r.ownerId||p.ownerId!==r.ownerId)&&matchesCriteria(p,criteria)&&(!alternatives||p.price>r.budget)).sort((a,b)=>a.price-b.price);
+}
+export const money=(n:number)=>'$'+n.toLocaleString('es-MX');
+export const initials=(s:string)=>s.split(' ').slice(0,2).map(x=>x[0]).join('');
